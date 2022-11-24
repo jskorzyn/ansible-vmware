@@ -1,6 +1,11 @@
 # VMware automation with Ansible
 
-Repo dedicated for ansible automation tasks on VMware platform
+Repo dedicated for ansible automation tasks on VMware platform.
+
+Use cases:
+
+1. Demo scenarios
+2. PoC 
 
 Current playbooks:
 
