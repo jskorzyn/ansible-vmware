@@ -1,0 +1,54 @@
+---
+- name: 'Create single VM on VMware Platform from template and add tag'
+  hosts: 'all'
+  connection: 'local'
+  gather_facts: 'no'
+  tasks:
+    - name: VM create task 
+      community.vmware.vmware_guest:
+        hostname: "{{ lookup('env', 'VMWARE_HOST') }}" 
+        username: "{{ lookup('env', 'VMWARE_USER') }}" 
+        password: "{{ lookup('env', 'VMWARE_PASSWORD') }}"
+        validate_certs: 'no'
+        datacenter: 'Default'
+        cluster: 'PoC-Cluster'
+        name: '{{vm_env | default(dev)}}-{{ vm_name | default(change_me) }}'
+        folder: 'POCansible/vms'
+        template: '{{ template | default(rhel9_template)}}'
+        state: 'poweredon'
+        hardware: 
+          memory_mb: '{{ memory_mb | default(4096)}}'
+          num_cpus: '{{ cpu | default(2)}}'
+        disk:
+        - size_gb: '{{ size | default(30) }}'
+          type: 'thin'
+          datastore: '{{ datastore | default(datastore1)}}'
+        networks:
+        - name: "{{vm_net_name | default(vm_net_01)}}"
+          ip: "{{ vm_ip | default(192.168.1.250)}}"
+          netmask: 255.255.255.0
+          gateway: 192.168.1.0
+          start_connected: true
+        customization:
+          dns_servers:
+          - '8.8.8.8'
+          - '8.9.9.9'
+          domain: 'poc.example.com'
+        wait_for_ip_address: 'yes' 
+      register: 'new_vm'
+
+    - name: Create a tag
+      community.vmware.vmware_tag:
+        category_id: '{{category_id}}'
+        tag_name: ansibleVM
+        tag_description: VM made by Ansible
+        state: present
+
+    - name: Add tags to a virtual machine
+      community.vmware.vmware_tag_manager:
+        validate_certs: no
+        tag_names:
+          - Ansible:ansibleVM
+        object_name: '{{vm_env | default(dev)}}-{{ vm_name | default(change_me) }}'
+        object_type: VirtualMachine
+        state: add

@@ -1,0 +1,52 @@
+---
+- name: 'Create multiple new VMs in parallel on VMware Platform from template'
+  hosts: 'all'
+  connection: 'local'
+  gather_facts: 'no'
+  tasks:
+    - community.vmware.vmware_guest:
+        hostname: "{{ lookup('env', 'VMWARE_HOST') }}" 
+        username: "{{ lookup('env', 'VMWARE_USER') }}" 
+        password: "{{ lookup('env', 'VMWARE_PASSWORD') }}"
+        validate_certs: 'no'
+        datacenter: 'Default'
+        cluster: 'PoC-Cluster'
+        name: '{{ item }}'
+        folder: 'POCansible/vms'
+        template: '{{ template | default(rhel9_template)}}'
+        state: 'poweredon'
+        hardware: 
+          memory_mb: '{{ memory_mb | default(4096)}}'
+          num_cpus: '{{ cpu | default(2)}}'
+        disk:
+        - size_gb: '{{ size | default(30) }}'
+          type: 'thin'
+          datastore: '{{ datastore | default(datastore1)}}'
+        customization:
+          dns_servers:
+          - '8.8.8.8'
+          - '8.9.9.9'
+          domain: 'poc.example.com'
+        wait_for_ip_address: 'yes' 
+      async: '5000'
+      poll: '0'
+      with_sequence: "start='{{ start }}' end='{{ end }}' format={{ prefix }}-%d-{{ vm_env | default('Dev') }}"
+      register: 'new_vms'
+
+    - name: 'Debug'
+      debug:
+        msg: '{{ new_vms }}'
+        verbosity: '4'
+
+    - name: 'Debug 2'
+      debug:
+        msg: '{{ new_vms.results }}'
+        verbosity: '4'
+
+    - name: 'Check status'
+      async_status: jid={{ item.ansible_job_id }}
+      register: 'job_result'
+      until: 'job_result.finished'
+      retries: 100
+      delay: 45
+      with_items: '{{ new_vms.results }}'
